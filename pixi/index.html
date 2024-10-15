@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+    <meta charset="UTF-8">
+    <link rel="icon" href="images/enemy.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astronauta</title>
+    <script src="js/pixi.js"></script>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #2c3e50;
+            /* Cor de fundo */
+        }
+
+        #gameDiv {
+            width: 800px;
+            /* Ajuste a largura conforme necessário */
+            height: 600px;
+            /* Ajuste a altura conforme necessário */
+            border: 5px solid #ffffff;
+            /* Adicione uma borda branca */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            /* Adicione uma sombra */
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+
+
+    <script>
+
+        let playerActive = true;
+        let pontos = 0
+        let app;
+        let player;
+        let mira;
+        let bullets = [];
+        let bulletSpeed = 18;
+        let enemy;
+        let enemyActive = true
+        let enemies = [];
+        let enemySpeed = 2;
+        let pontosText;
+        let tempoDeSpawn = 2000;
+        let stars = []
+        //VARIAVEIS DOS SONS
+        let shootSound = new Howl({
+            src: ['audio/shoot.mp3'],
+            volume: 0.1
+        });
+        let splatSound = new Howl({
+            src: ['audio/splat.mp3'],
+            volume: 0.1
+        });
+        let dieSound = new Howl({
+            src: ['audio/die.mp3'],
+            volume: 0.1
+        });
+
+        let backgroundSound = new Howl({
+            src: ['audio/background.mp3'],
+            volume: 0.1
+        });
+
+        window.onload = function () {
+            app = new PIXI.Application(
+                {
+                    width: 800,
+                    height: 600,
+                    backgroundColor: 0x000000
+                }
+            );
+            document.querySelector("#gameDiv").appendChild(app.view);
+            backgroundSound.play()
+
+            // Mostrar a tela de início
+            start();
+
+
+
+
+        }
+        function jogo() {
+
+            app.stage.removeChildren();
+
+            //estrelas do fundo
+            createStars();
+            app.ticker.add(updateStars);
+
+            //player object
+            player = new PIXI.Sprite.from("images/player.png")
+            player.anchor.set(0.5)
+            player.x = app.view.width / 2
+            player.y = app.view.height / 2
+            app.stage.addChild(player)
+            //mira object   
+            document.querySelector("#gameDiv").style.cursor = "none";
+            mira = new PIXI.Sprite.from("images/mira.png")
+            mira.anchor.set(0.5);
+            mira.x = app.view.width / 2;
+            mira.y = app.view.height / 2;
+
+            app.stage.addChild(mira);
+
+            // mouse interactions
+            app.stage.interactive = true;
+            app.stage.on("pointermove", moveMira);
+
+            //keybord event
+            window.addEventListener("keydown", keysDown);
+            window.addEventListener("keyup", keysUp);
+
+
+
+            keysDiv = document.querySelector("#keys")
+
+            //balas
+            app.stage.interactive = true;
+            document.querySelector("#gameDiv").addEventListener("pointerdown", fireBullet);
+
+            //inimigo
+            spawnEnemies();
+
+            enemy = new PIXI.Sprite.from("images/enemy.png")
+
+            //meteoro
+            //setInterval(createEnemy, 4000) criar meteoro a cada 4 segundos (criar função para spawnar meteoro )
+
+            setInterval(createEnemy, tempoDeSpawn); // Cria um novo inimigo 
+            app.ticker.add(updateEnemies);
+            // Adicionar texto de pontos
+            pontosText = new PIXI.Text('Pontos: 0', {
+                fontFamily: 'Press Start 2P',
+                fontSize: 24,
+                fill: 'white'
+            });
+
+            pontosText.anchor.set(0.5, 0);
+            pontosText.x = app.view.width / 2;
+            pontosText.y = 10;
+            app.stage.addChild(pontosText);
+
+
+            app.ticker.add(gameLoop);
+            app.ticker.add(gameLoopBullet);
+
+
+        }
+        //estrelas do fundo
+        function createStars() {
+            for (let i = 0; i < 100; i++) {
+                let star = new PIXI.Sprite.from("images/star.png");
+                star.anchor.set(0.5);
+                star.x = Math.random() * app.view.width;
+                star.y = Math.random() * app.view.height;
+                star.vy = Math.random() * 1; // Velocidade aleatória
+                app.stage.addChild(star);
+                stars.push(star);
+            }
+        }
+
+        function updateStars(delta) {
+            for (let i = 0; i < stars.length; i++) {
+                stars[i].y += stars[i].vy * delta;
+                if (stars[i].y > app.view.height) {
+                    stars[i].y = -stars[i].height; // Reposiciona a estrela no topo
+                    stars[i].x = Math.random() * app.view.width;
+                }
+            }
+        }
+        //mira
+        function moveMira(e) {
+            let pos = e.data.global;
+
+            mira.x = pos.x;
+            mira.y = pos.y;
+        }
+
+        //controla o player
+
+        function keysDown(e) {
+            console.log(e.keyCode);
+            keys[e.keyCode] = true;
+        }
+        function keysUp(e) {
+
+            keys[e.keyCode] = false;
+        }
+        function rotatePlayerToMouse() {
+
+            let dx = mira.x - player.x;
+            let dy = mira.y - player.y;
+            let angle = Math.atan2(dy, dx); // Calcula o ângulo em radianos
+            player.rotation = angle; // Aplica a rotação ao sprite do player
+
+
+        }
+        //gameloop
+        function gameLoopBullet(delta) {
+            updateBullets(delta);
+        }
+        function gameLoop() {
+
+
+            if (keys["87"]) {
+                player.y -= 5;
+            }
+            if (keys["83"]) {
+                player.y += 5;
+            }
+            if (keys["68"]) {
+                player.x += 5;
+            }
+            if (keys["65"]) {
+                player.x -= 5;
+            }
+            if (player.x < player.width / 2) {
+                player.x = player.width / 2;
+            }
+            if (player.x > app.view.width - player.width / 2) {
+                player.x = app.view.width - player.width / 2;
+            }
+            if (player.y < player.height / 2) {
+                player.y = player.height / 2;
+            }
+            if (player.y > app.view.height - player.height / 2) {
+                player.y = app.view.height - player.height / 2;
+            }
+            rotatePlayerToMouse();
+        }
+        //balas
+        function fireBullet(e) {
+            console.log("FIRE!!");
+            shootSound.play();//som e tiro
+            let bullet = createBullet()
+            bullets.push(bullet)
+        }
+
+        function createBullet() {
+            let bullet = new PIXI.Sprite.from("images/bullet.png");
+            bullet.anchor.set(0.5);
+            bullet.x = player.x;
+            bullet.y = player.y;
+
+            // Calcular a direção do tiro
+            let dx = mira.x - player.x;
+            let dy = mira.y - player.y;
+            let magnitude = Math.sqrt(dx * dx + dy * dy);
+            bullet.vx = (dx / magnitude) * bulletSpeed;
+            bullet.vy = (dy / magnitude) * bulletSpeed;
+
+            app.stage.addChild(bullet);
+
+            return bullet;
+        }
+        function updateBullets(delta) {
+            for (let i = 0; i < bullets.length; i++) {
+                bullets[i].position.x += bullets[i].vx;
+                bullets[i].position.y += bullets[i].vy;
+
+                // Verificar colisão com o inimigo
+                if (rectsIntersect(bullets[i], enemy)) {
+                    bullets[i].dead = true;
+                    enemy.dead = true;
+                    enemyActive = false;
+                    app.stage.removeChild(enemy);
+                    // Atualizar pontos
+
+
+                }
+
+
+                if (bullets[i].position.y < 0 || bullets[i].position.y > app.view.height || bullets[i].position.x < 0 || bullets[i].position.x > app.view.width) {
+                    bullets[i].dead = true;
+                }
+            }
+            for (let i = 0; i < bullets.length; i++) {
+                if (bullets[i].dead) {
+                    app.stage.removeChild(bullets[i]);
+                    bullets.splice(i, 1);
+                }
+            }
+        }
+        //funçao para os sprites
+        function setup() {
+            start();
+        }
+
+
+        //criar inimigos 
+        function spawnEnemies() {
+            createEnemy();
+
+            // Diminui o tempo de spawn conforme o jogo avança
+            tempoDeSpawn = Math.max(500, tempoDeSpawn - 100); // Tempo mínimo de 500ms
+
+            // Chama a função novamente após o tempo de spawn
+            setTimeout(spawnEnemies, tempoDeSpawn);
+        }
+
+        function createEnemy() {
+            //let enemy = new PIXI.Sprite(PIXI.Loader.shared.resources['enemy'].textures['enemy.png']);
+            let enemy = new PIXI.Sprite.from("images/enemy.png");
+            enemy.anchor.set(0.5);
+
+            // Posicionar inimigo fora da tela aleatoriamente
+            let side = Math.floor(Math.random() * 4);
+            switch (side) {
+                case 0: // Topo
+                    enemy.x = Math.random() * app.view.width;
+                    enemy.y = -enemy.height / 2;
+                    break;
+                case 1: // Fundo
+                    enemy.x = Math.random() * app.view.width;
+                    enemy.y = app.view.height + enemy.height / 2;
+                    break;
+                case 2: // Esquerda
+                    enemy.x = -enemy.width / 2;
+                    enemy.y = Math.random() * app.view.height;
+                    break;
+                case 3: // Direita
+                    enemy.x = app.view.width + enemy.width / 2;
+                    enemy.y = Math.random() * app.view.height;
+                    break;
+            }
+
+            // Adiciona o inimigo ao palco e ao array de inimigos
+            app.stage.addChild(enemy);
+            enemies.push(enemy);
+        }
+
+        function updateEnemies(delta) {
+            for (let i = 0; i < enemies.length; i++) {
+                let enemy = enemies[i];
+
+                // Mover o inimigo em direção ao jogador
+                let dx = player.x - enemy.x;
+                let dy = player.y - enemy.y;
+                let magnitude = Math.sqrt(dx * dx + dy * dy);
+                enemy.vx = (dx / magnitude) * enemySpeed;
+                enemy.vy = (dy / magnitude) * enemySpeed;
+
+                enemy.x += enemy.vx * delta;
+                enemy.y += enemy.vy * delta;
+
+                delta;
+
+                // Verificar colisão com as balas
+                for (let j = 0; j < bullets.length; j++) {
+                    if (rectsIntersect(enemy, bullets[j])) {
+                        bullets[j].dead = true;
+                        enemy.dead = true;
+                        pontos += 15;
+                        pontosText.text = `Pontos: ${pontos}`;
+                        break;
+                    }
+                }
+
+
+                if (enemy.dead) {
+                    app.stage.removeChild(enemy);
+                    enemies.splice(i, 1);
+                    splatSound.play()
+                    i--; // Ajustar índice após remover
+                }
+                //colisão com inimigo
+                if (rectsIntersect(enemy, player) && playerActive == true) {
+                    player.dead = true;
+                    dieSound.play();
+
+                }
+
+                if (player.dead) {
+
+                    app.stage.removeChild(player)
+                    showGameOver();
+                    playerActive = false;
+
+                }
+            }
+
+        }
+
+
+
+
+        //colisão
+
+
+
+        function rectsIntersect(a, b) {
+            let aBox = a.getBounds();
+            let bBox = b.getBounds();
+
+            return aBox.x + aBox.width > bBox.x &&
+                aBox.x < bBox.x + bBox.width &&
+                aBox.y + aBox.height > bBox.y &&
+                aBox.y < bBox.y + bBox.height;
+        }
+
+        //game over
+        function showGameOver() {
+
+            app.stage.removeChildren();
+            // Tela de fundo
+            let gameOverBG = new PIXI.Graphics();
+            gameOverBG.beginFill(0x000000, 0.7);
+            gameOverBG.drawRect(0, 0, app.view.width, app.view.height);
+            gameOverBG.endFill();
+            app.stage.addChild(gameOverBG);
+
+            // Texto de "Game Over"
+            let gameOverText = new PIXI.Text('Game Over', {
+                fontFamily: 'Press Start 2P',
+                fontSize: 50,
+                fill: 'white'
+            });
+            gameOverText.anchor.set(0.5);
+            gameOverText.x = app.view.width / 2;
+            gameOverText.y = app.view.height / 2 - 50;
+            app.stage.addChild(gameOverText);
+
+            //pontos
+            let pontosText = new PIXI.Text('Pontuação:' + pontos, {
+                fontFamily: 'Press Start 2P',
+                fontSize: 20,
+                fill: 'white'
+            });
+            pontosText.anchor.set(0.5);
+            pontosText.x = app.view.width / 2;
+            pontosText.y = app.view.height / 2 ;
+            app.stage.addChild(pontosText);
+
+
+            // Botão de reiniciar
+            let restartButton = new PIXI.Text('Jogar Novamente', {
+                fontFamily: 'Press Start 2P',
+                fontSize: 20,
+                fill: 'white'
+            });
+            restartButton.anchor.set(0.5);
+            restartButton.x = app.view.width / 2;
+            restartButton.y = app.view.height / 2 + 50;
+            restartButton.interactive = true;
+            restartButton.buttonMode = true;
+            restartButton.on('pointerdown', () => {
+                window.location.reload(); // reinicia o jogo
+            });
+            app.stage.addChild(restartButton);
+            app.stage.addChild(mira);
+
+        }
+        function start() {
+            // Tela de fundo
+            let startBG = new PIXI.Graphics();
+            startBG.beginFill(0x000000, 0.7);
+            startBG.drawRect(0, 0, app.view.width, app.view.height);
+            startBG.endFill();
+            app.stage.addChild(startBG);
+
+            // Texto de começar
+
+            let startText = new PIXI.Text('Astronauta x Lulas do Espaço', {
+                fontFamily: 'Press Start 2P',
+                fontSize: 25,
+                fill: 'white'
+            });
+            startText.anchor.set(0.5);
+            startText.x = app.view.width / 2;
+            startText.y = app.view.height / 2 - 50;
+            app.stage.addChild(startText);
+
+            // Botão de iniciar
+            let startButton = new PIXI.Text('Jogar', {
+                fontFamily: 'Press Start 2P',
+                fontSize: 40,
+                fill: 'white'
+            });
+            startButton.anchor.set(0.5);
+            startButton.x = app.view.width / 2;
+            startButton.y = app.view.height / 2 + 50;
+            startButton.interactive = true;
+            startButton.buttonMode = true;
+            startButton.on('pointerdown', () => {
+                jogo(); // começa o jogo
+            });
+            app.stage.addChild(startButton);
+            app.stage.addChild(mira);
+        }
+
+
+    </script>
+</head>
+
+<body>
+    <div id="keys"></div>
+    <div id="gameDiv"></div>
+</body>
+
+</html>
