@@ -38,7 +38,7 @@
 
 
     <script>
-
+        let gameActive = true;
         let playerActive = true;
         let pontos = 0
         let app;
@@ -259,7 +259,7 @@
             let magnitude = Math.sqrt(dx * dx + dy * dy);
             bullet.vx = (dx / magnitude) * bulletSpeed;
             bullet.vy = (dy / magnitude) * bulletSpeed;
-
+            
             app.stage.addChild(bullet);
 
             return bullet;
@@ -361,16 +361,17 @@
                     if (rectsIntersect(enemy, bullets[j])) {
                         bullets[j].dead = true;
                         enemy.dead = true;
-                        pontos += 15;
+                        
                         pontosText.text = `Pontos: ${pontos}`;
                         break;
                     }
                 }
 
 
-                if (enemy.dead) {
+                if (enemy.dead && gameActive==true) {
                     app.stage.removeChild(enemy);
                     enemies.splice(i, 1);
+                    pontos += 15;
                     splatSound.play()
                     i--; // Ajustar índice após remover
                 }
@@ -382,7 +383,7 @@
                 }
 
                 if (player.dead) {
-
+                    gameActive = false;
                     app.stage.removeChild(player)
                     showGameOver();
                     playerActive = false;
@@ -411,7 +412,7 @@
 
         //game over
         function showGameOver() {
-
+            
             app.stage.removeChildren();
             // Tela de fundo
             let gameOverBG = new PIXI.Graphics();
